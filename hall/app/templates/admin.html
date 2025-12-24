@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Hall</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Administration Hall</h1>
+        <span>LAN Only</span>
+        <button onclick="reloadConfig()" class="btn-reload">🔄 Recharger config</button>
+    </div>
+
+    <h2>🌐 Domaines configurés</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Domaine</th>
+                <th>Description</th>
+                <th>IP Serveur</th>
+                <th>Politique</th>
+                <th>Timeout</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for name, data in domains.items() %}
+            <tr>
+                <td><a href="/{{ name }}">{{ name }}</a></td>
+                <td>{{ data.config.description or '-' }}</td>
+                <td>{{ data.config.server.ip }}</td>
+                <td>
+                    <span class="badge badge-policy">{{ data.config.policy.type }}</span>
+                </td>
+                <td>{{ data.config.policy.idle_timeout_minutes }} min</td>
+                <td>
+                    <span class="status-dot {{ 'online' if data.online else 'offline' }}"></span>
+                    {{ 'En ligne' if data.online else 'Hors ligne' }}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; color: #888;">Aucun domaine configuré</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>⚡ Activité récente</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Domaine</th>
+                <th>Dernière activité</th>
+                <th>Dernier WoL</th>
+                <th>Nb réveils</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for act in activity %}
+            <tr>
+                <td>{{ act.domain }}</td>
+                <td>{{ act.last_activity }}</td>
+                <td>{{ act.last_wol or '-' }}</td>
+                <td>{{ act.boot_count }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align: center; color: #888;">Aucune activité</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>📋 Derniers logs</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Domaine</th>
+                <th>Action</th>
+                <th>Statut</th>
+                <th>IP Client</th>
+                <th>Détails</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.timestamp }}</td>
+                <td>{{ log.domain }}</td>
+                <td>{{ log.action }}</td>
+                <td>
+                    <span class="badge badge-{{ 'success' if log.status == 'success' else 'failed' if log.status == 'failed' else 'pending' }}">
+                        {{ log.status or '-' }}
+                    </span>
+                </td>
+                <td><code>{{ log.client_ip or '-' }}</code></td>
+                <td>{{ log.details or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; color: #888;">Aucun log</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        async function reloadConfig() {
+            const response = await fetch('/api/reload', { method: 'POST' });
+            const data = await response.json();
+            alert(data.message);
+            if (data.success) location.reload();
+        }
+    </script>
+</body>
+</html>

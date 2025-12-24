@@ -1,0 +1,37 @@
+# Dockerfile pour l'application Flask Gateway
+FROM python:3.11-slim
+
+# Labels
+LABEL maintainer="infra-test"
+LABEL description="Flask Gateway - orchestrateur du hall d'entrée"
+
+# Variables d'environnement
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Répertoire de travail
+WORKDIR /app
+
+# Installation des dépendances système
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wakeonlan \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copie des dépendances Python
+COPY app/requirements.txt .
+
+# Installation des dépendances Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copie de l'application
+COPY app/ .
+
+# Création du répertoire pour la base de données
+RUN mkdir -p /data
+
+# Exposition du port Flask
+EXPOSE 5000
+
+# Commande de démarrage
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]

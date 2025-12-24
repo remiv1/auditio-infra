@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  traefik:
+    build:
+      context: .
+      dockerfile: Dockerfile.traefik
+    container_name: hall-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/acme:/etc/traefik/acme
+    networks:
+      - hall-network
+
+  flask:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: hall-flask
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_PATH=/data/hall.db
+      - CONFIG_PATH=/app/config/domains.json
+    volumes:
+      - hall-data:/data
+      - ./config:/app/config:ro
+    networks:
+      - hall-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.flask.rule=PathPrefix(`/`)"
+      - "traefik.http.services.flask.loadbalancer.server.port=5000"
+
+volumes:
+  hall-data:
+    driver: local
+
+networks:
+  hall-network:
+    driver: bridge

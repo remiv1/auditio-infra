@@ -1,0 +1,124 @@
+/* Styles page admin */
+body {
+    padding: 2rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+h1 {
+    font-size: 1.8rem;
+}
+
+h2 {
+    font-size: 1.3rem;
+    margin: 2rem 0 1rem;
+    color: #4ade80;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #16213e;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+th,
+td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #2a2a4a;
+}
+
+th {
+    background: #0f3460;
+    font-weight: 600;
+}
+
+tr:hover {
+    background: #1f3a5f;
+}
+
+.status-success {
+    color: #4ade80;
+}
+
+.status-failed {
+    color: #f87171;
+}
+
+.status-pending {
+    color: #fbbf24;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.badge-success {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+.badge-failed {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+.badge-pending {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+.badge-policy {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.status-dot.online {
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+}
+
+.status-dot.offline {
+    background: #6b7280;
+}
+
+.btn-reload {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+    border: 1px solid #4ade80;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.btn-reload:hover {
+    background: rgba(74, 222, 128, 0.3);
+}
+
+table a {
+    color: #4ade80;
+    text-decoration: none;
+}
+
+table a:hover {
+    text-decoration: underline;
+}

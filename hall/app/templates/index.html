@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall - Orchestrateur</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🚪 Hall</h1>
+        <p>Orchestrateur de services à la demande</p>
+        
+        {% if domains %}
+        <div class="domains-list">
+            <h2>Domaines configurés</h2>
+            <ul>
+                {% for domain in domains %}
+                <li><a href="/{{ domain }}">{{ domain }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{
+    "domains": {
+        "testing": {
+            "description": "Serveur de test client",
+            "server": {
+                "mac": "00:11:22:33:44:55",
+                "ip": "192.168.1.100",
+                "hostname": "testing-server"
+            },
+            "policy": {
+                "type": "on_demand",
+                "idle_timeout_minutes": 20,
+                "wol_enabled": true
+            },
+            "redirect": {
+                "url": "https://testing.audit-io.fr",
+                "health_check": "/health"
+            },
+            "security": {
+                "allowed_ips": [],
+                "require_auth": false
+            }
+        },
+        "erp": {
+            "description": "ERP entreprise",
+            "server": {
+                "mac": "00:11:22:33:44:66",
+                "ip": "192.168.1.101",
+                "hostname": "erp-server"
+            },
+            "policy": {
+                "type": "scheduled",
+                "schedule": {
+                    "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+                    "start_hour": 8,
+                    "end_hour": 18,
+                    "timezone": "Europe/Paris"
+                },
+                "idle_timeout_minutes": 60,
+                "wol_enabled": true
+            },
+            "redirect": {
+                "url": "https://erp.audit-io.fr",
+                "health_check": "/api/health"
+            },
+            "security": {
+                "allowed_ips": ["192.168.1.0/24"],
+                "require_auth": false
+            }
+        }
+    },
+    "global": {
+        "base_domain": "audit-io.fr",
+        "ping_timeout_seconds": 2,
+        "health_check_timeout_seconds": 5,
+        "polling_interval_seconds": 3,
+        "max_boot_wait_seconds": 300
+    }
+}

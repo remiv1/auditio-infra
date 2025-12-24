@@ -1,0 +1,54 @@
+/* Styles page d'accueil */
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    text-align: center;
+    padding: 2rem;
+}
+
+h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+p {
+    font-size: 1.2rem;
+    color: #aaa;
+}
+
+.domains-list {
+    margin-top: 3rem;
+    text-align: left;
+}
+
+.domains-list h2 {
+    font-size: 1.2rem;
+    color: #4ade80;
+    margin-bottom: 1rem;
+}
+
+.domains-list ul {
+    list-style: none;
+}
+
+.domains-list li {
+    margin: 0.5rem 0;
+}
+
+.domains-list a {
+    color: #eee;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.domains-list a:hover {
+    background: rgba(74, 222, 128, 0.2);
+}

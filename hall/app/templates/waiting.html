@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Démarrage en cours - {{ domain }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/waiting.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Démarrage de <strong>{{ config.description or domain }}</strong></h1>
+        
+        <div class="spinner" id="spinner"></div>
+        
+        <div class="status">
+            <div class="status-item" id="status-server">
+                <span class="icon">⏳</span>
+                <span>Réveil du serveur...</span>
+            </div>
+            <div class="status-item" id="status-service">
+                <span class="icon">⏳</span>
+                <span>Démarrage du service...</span>
+            </div>
+        </div>
+        
+        <p class="message">Veuillez patienter, vous serez redirigé automatiquement.</p>
+        
+        <div class="policy-info" id="policy-info"></div>
+    </div>
+
+    <script>
+        const DOMAIN_NAME = "{{ domain }}";
+        const POLLING_INTERVAL = {{ polling_interval }} * 1000;
+    </script>
+    <script src="{{ url_for('static', filename='js/waiting.js') }}"></script>
+</body>
+</html>
+const PROJECT_NAME = "{{ project }}";</script>
+    <script src="{{ url_for('static', filename='js/waiting.js') }}">

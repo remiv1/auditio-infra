@@ -1,0 +1,9 @@
+# Dockerfile pour Traefik sur Raspberry Pi
+FROM traefik:v3.2
+
+# Labels
+LABEL maintainer="infra-test"
+LABEL description="Traefik reverse proxy pour le hall d'entrée"
+
+# Exposition des ports
+EXPOSE 80 443

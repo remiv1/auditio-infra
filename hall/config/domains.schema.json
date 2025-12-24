@@ -1,0 +1,123 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Hall Domains Configuration",
+    "type": "object",
+    "required": ["domains", "global"],
+    "properties": {
+        "domains": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": ["server", "policy", "redirect"],
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "description": "Description du domaine"
+                    },
+                    "server": {
+                        "type": "object",
+                        "required": ["mac", "ip"],
+                        "properties": {
+                            "mac": {
+                                "type": "string",
+                                "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$",
+                                "description": "Adresse MAC du serveur"
+                            },
+                            "ip": {
+                                "type": "string",
+                                "description": "Adresse IP du serveur"
+                            },
+                            "hostname": {
+                                "type": "string",
+                                "description": "Nom d'hôte du serveur"
+                            }
+                        }
+                    },
+                    "policy": {
+                        "type": "object",
+                        "required": ["type"],
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["on_demand", "scheduled", "always_on"],
+                                "description": "Type de politique de réveil"
+                            },
+                            "schedule": {
+                                "type": "object",
+                                "properties": {
+                                    "days": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+                                        }
+                                    },
+                                    "start_hour": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 23
+                                    },
+                                    "end_hour": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 23
+                                    },
+                                    "timezone": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "idle_timeout_minutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Délai d'inactivité avant extinction"
+                            },
+                            "wol_enabled": {
+                                "type": "boolean",
+                                "description": "Activer le Wake-on-LAN"
+                            }
+                        }
+                    },
+                    "redirect": {
+                        "type": "object",
+                        "required": ["url"],
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "URL de redirection"
+                            },
+                            "health_check": {
+                                "type": "string",
+                                "description": "Endpoint de health check"
+                            }
+                        }
+                    },
+                    "security": {
+                        "type": "object",
+                        "properties": {
+                            "allowed_ips": {
+                                "type": "array",
+                                "items": { "type": "string" },
+                                "description": "Liste des IPs/CIDR autorisés"
+                            },
+                            "require_auth": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "global": {
+            "type": "object",
+            "properties": {
+                "base_domain": { "type": "string" },
+                "ping_timeout_seconds": { "type": "integer" },
+                "health_check_timeout_seconds": { "type": "integer" },
+                "polling_interval_seconds": { "type": "integer" },
+                "max_boot_wait_seconds": { "type": "integer" }
+            }
+        }
+    }
+}
