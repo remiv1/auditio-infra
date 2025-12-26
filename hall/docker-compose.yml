@@ -28,6 +28,7 @@ services:
       - CONFIG_PATH=/app/config/domains.json
       - TESTING_SERVER_IP=${TESTING_SERVER_IP:-}
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
     volumes:
       - hall-data:/data
       - ./config:/app/config:ro,Z

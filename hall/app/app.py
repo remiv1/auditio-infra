@@ -25,6 +25,38 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me-in-production')
 
+# Authentification admin simple
+def require_admin_login(view_func):
+    from functools import wraps
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("admin_authenticated"):
+            return redirect(url_for("admin_login", next=request.url))
+        return view_func(*args, **kwargs)
+    return wrapped_view
+
+# Route de login admin
+@app.route("/admin/login", methods=["GET", "POST"], endpoint="admin_login")
+def admin_login():
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+    if not admin_password:
+        flash("Aucun mot de passe admin n'est défini. Veuillez définir la variable d'environnement ADMIN_PASSWORD.", "error")
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if admin_password and password == admin_password:
+            session["admin_authenticated"] = True
+            next_url = request.args.get("next") or url_for("admin")
+            return redirect(next_url)
+        flash("Mot de passe incorrect", "error")
+    return render_template("admin_login.html")
+
+# Route de logout admin
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin_authenticated", None)
+    flash("Déconnecté", "info")
+    return redirect(url_for("admin_login"))
+
 # Configuration
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/hall.db")
 CONFIG_PATH = os.environ.get("CONFIG_PATH", "/app/config/domains.json")
@@ -429,6 +461,7 @@ def api_activity(domain: str):
 
 
 @app.route("/api/config")
+@require_admin_login
 def api_config():
     """API pour récupérer la configuration (admin only)."""
     # TODO: Vérifier accès admin
@@ -449,6 +482,7 @@ def api_config():
 
 
 @app.route("/api/reload", methods=["POST"])
+@require_admin_login
 def api_reload():
     """API pour recharger la configuration."""
     # TODO: Vérifier accès admin
@@ -460,6 +494,7 @@ def api_reload():
 
 
 @app.route("/admin")
+@require_admin_login
 def admin():
     """Tableau de bord admin (LAN only)."""
     # TODO: Vérifier que l'accès vient du LAN
@@ -531,6 +566,7 @@ def log_testing_access(project_name: str, action: str):
 
 # Routes Admin pour les projets Testing
 @app.route("/admin/testing")
+@require_admin_login
 def admin_testing():
     """Page d'administration des projets testing."""
     projects = get_all_testing_projects()
@@ -551,6 +587,7 @@ def admin_testing():
 
 
 @app.route("/admin/testing/add", methods=["GET", "POST"])
+@require_admin_login
 def admin_testing_add():
     """Ajouter un nouveau projet testing."""
     if request.method == "POST":
@@ -604,6 +641,7 @@ def admin_testing_add():
 
 
 @app.route("/admin/testing/edit/<name>", methods=["GET", "POST"])
+@require_admin_login
 def admin_testing_edit(name: str):
     """Modifier un projet testing."""
     project = get_testing_project(name)
@@ -664,6 +702,7 @@ def admin_testing_edit(name: str):
 
 
 @app.route("/admin/testing/delete/<name>", methods=["POST"])
+@require_admin_login
 def admin_testing_delete(name: str):
     """Supprimer un projet testing."""
     conn = get_db()

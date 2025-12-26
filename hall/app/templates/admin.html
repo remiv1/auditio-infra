@@ -8,10 +8,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
 <body>
+
     <div class="header">
         <h1>🔧 Administration Hall</h1>
         <span>LAN Only</span>
         <button onclick="reloadConfig()" class="btn-reload">🔄 Recharger config</button>
+        <a href="{{ url_for('admin_logout') }}" class="btn-logout" style="float:right;margin-left:1em;">Déconnexion</a>
     </div>
 
     <h2>🌐 Domaines configurés</h2>
