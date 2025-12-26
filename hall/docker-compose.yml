@@ -10,6 +10,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro,Z
       - ./traefik/dynamic:/etc/traefik/dynamic:ro,Z

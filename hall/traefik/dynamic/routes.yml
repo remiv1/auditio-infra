@@ -5,8 +5,7 @@ http:
       service: flask-service
       entryPoints:
         - web
-        - websecure
-      tls: {}
+      priority: 1
   services:
     flask-service:
       loadBalancer:
