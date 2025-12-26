@@ -2,6 +2,7 @@
 Hall - Flask Gateway
 Orchestrateur pour le réveil à la demande des serveurs
 Gestion multi-domaines avec politiques configurables
++ Gestion des projets testing avec authentification
 """
 
 import os
@@ -9,26 +10,31 @@ import json
 import sqlite3
 import subprocess
 import ipaddress
-from typing import Dict, Any, List, Callable, TypeVar
+from typing import Dict, Any, List, Callable, TypeVar, Optional
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Optional
 from zoneinfo import ZoneInfo
+import httpx
 import requests
-
-from flask import Flask, render_template, jsonify, request, abort
+from flask import (
+    Flask, render_template, jsonify, request, abort, session, redirect, url_for, flash, Response
+)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me-in-production')
 
 # Configuration
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/hall.db")
 CONFIG_PATH = os.environ.get("CONFIG_PATH", "/app/config/domains.json")
+TESTING_SERVER_IP = os.environ.get("TESTING_SERVER_IP", "")  # IP du serveur testing
+PROXY_TIMEOUT = 30.0
 
 # Cache de la configuration et de l'activité
-_config_cache = None
-_config_mtime = None
-_activity_cache = {}  # {domain: last_activity_datetime}
+_config_cache: Dict[str, Any] | None = None
+_config_mtime: float | None = None
+_activity_cache: Dict[str, Any] = {}  # {domain: last_activity_datetime}
 
 
 def load_config(force_reload: bool = False) -> Dict[str, Any]:
@@ -45,6 +51,9 @@ def load_config(force_reload: bool = False) -> Dict[str, Any]:
         with open(config_path, "r", encoding="utf-8") as f:
             _config_cache = json.load(f)
         _config_mtime = current_mtime
+
+    if _config_cache is None:
+        raise ValueError("Échec du chargement de la configuration")
 
     return _config_cache
 
@@ -89,6 +98,31 @@ def init_db():
             last_activity DATETIME NOT NULL,
             last_wol DATETIME,
             boot_count INTEGER DEFAULT 0
+        )
+    """)
+    # Table pour les projets testing
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS testing_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            display_name TEXT NOT NULL,
+            port INTEGER NOT NULL,
+            password_hash TEXT NOT NULL,
+            description TEXT,
+            health_check_path TEXT DEFAULT '/health',
+            active INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # Table pour les logs d'accès testing
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS testing_access_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            project_name TEXT NOT NULL,
+            client_ip TEXT,
+            action TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -310,6 +344,9 @@ def api_status(domain: str):
     domain_config = get_domain_config(domain)
     global_config = get_global_config()
 
+    if not domain_config:
+        return jsonify({"error": "Domaine non configuré"}), 404
+
     server = domain_config.get("server", {})
     redirect_config = domain_config.get("redirect", {})
 
@@ -349,6 +386,9 @@ def api_status(domain: str):
 def api_wake(domain: str):
     """API pour réveiller le serveur d'un domaine."""
     domain_config = get_domain_config(domain)
+
+    if not domain_config:
+        return jsonify({"success": False, "message": "Domaine non configuré"}), 404
     policy = domain_config.get("policy", {})
 
     if not policy.get("wol_enabled", True):
@@ -394,7 +434,7 @@ def api_config():
     # TODO: Vérifier accès admin
     config = load_config()
     # Masquer les infos sensibles
-    safe_config = {
+    safe_config: Dict[str, Any] = {
         "domains": {
             name: {
                 "description": d.get("description"),
@@ -451,10 +491,328 @@ def admin():
     )
 
 
+# ============================================
+# GESTION DES PROJETS TESTING
+# ============================================
+
+def get_testing_project(name: str) -> Optional[Dict[str, Any]]:
+    """Récupère un projet testing par son nom."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM testing_projects WHERE name = ? AND active = 1", (name,)
+    ).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return None
+
+
+def get_all_testing_projects() -> List[Dict[str, Any]]:
+    """Récupère tous les projets testing."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM testing_projects ORDER BY name"
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def log_testing_access(project_name: str, action: str):
+    """Log un accès à un projet testing."""
+    client_ip = request.remote_addr if request else None
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO testing_access_logs (project_name, client_ip, action) VALUES (?, ?, ?)",
+        (project_name, client_ip, action)
+    )
+    conn.commit()
+    conn.close()
+
+
+# Routes Admin pour les projets Testing
+@app.route("/admin/testing")
+def admin_testing():
+    """Page d'administration des projets testing."""
+    projects = get_all_testing_projects()
+
+    # Récupérer les logs récents
+    conn = get_db()
+    logs = conn.execute(
+        "SELECT * FROM testing_access_logs ORDER BY timestamp DESC LIMIT 50"
+    ).fetchall()
+    conn.close()
+
+    return render_template(
+        "admin_testing.html",
+        projects=projects,
+        logs=logs,
+        testing_server_ip=TESTING_SERVER_IP
+    )
+
+
+@app.route("/admin/testing/add", methods=["GET", "POST"])
+def admin_testing_add():
+    """Ajouter un nouveau projet testing."""
+    if request.method == "POST":
+        name = request.form.get("name", "").strip().lower()
+        display_name = request.form.get("display_name", "").strip()
+        port = request.form.get("port", "").strip()
+        password = request.form.get("password", "")
+        description = request.form.get("description", "").strip()
+        health_check_path = request.form.get("health_check_path", "/health").strip()
+
+        # Validation
+        if not name or not display_name or not port or not password:
+            flash("Tous les champs obligatoires doivent être remplis", "error")
+            return redirect(url_for("admin_testing_add"))
+
+        if not name.isalnum():
+            flash("Le nom doit contenir uniquement des lettres et chiffres", "error")
+            return redirect(url_for("admin_testing_add"))
+
+        try:
+            port = int(port)
+            if port < 1 or port > 65535:
+                raise ValueError()
+        except ValueError:
+            flash("Le port doit être un nombre entre 1 et 65535", "error")
+            return redirect(url_for("admin_testing_add"))
+
+        # Vérifier que le nom n'existe pas
+        if get_testing_project(name):
+            flash("Un projet avec ce nom existe déjà", "error")
+            return redirect(url_for("admin_testing_add"))
+
+        # Créer le projet
+        password_hash = generate_password_hash(password)
+        conn = get_db()
+        try:
+            conn.execute("""
+                INSERT INTO testing_projects (name, display_name, port, password_hash, description, health_check_path)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (name, display_name, port, password_hash, description, health_check_path))
+            conn.commit()
+            flash(f"Projet '{display_name}' créé avec succès", "success")
+        except sqlite3.IntegrityError:
+            flash("Erreur lors de la création du projet", "error")
+        finally:
+            conn.close()
+
+        return redirect(url_for("admin_testing"))
+
+    return render_template("admin_testing_form.html", project=None)
+
+
+@app.route("/admin/testing/edit/<name>", methods=["GET", "POST"])
+def admin_testing_edit(name: str):
+    """Modifier un projet testing."""
+    project = get_testing_project(name)
+    if not project:
+        flash("Projet non trouvé", "error")
+        return redirect(url_for("admin_testing"))
+
+    if request.method == "POST":
+        display_name = request.form.get("display_name", "").strip()
+        port = request.form.get("port", "").strip()
+        password = request.form.get("password", "")
+        description = request.form.get("description", "").strip()
+        health_check_path = request.form.get("health_check_path", "/health").strip()
+        active = request.form.get("active") == "on"
+
+        # Validation
+        if not display_name or not port:
+            flash("Nom d'affichage et port sont obligatoires", "error")
+            return redirect(url_for("admin_testing_edit", name=name))
+
+        try:
+            port = int(port)
+            if port < 1 or port > 65535:
+                raise ValueError()
+        except ValueError:
+            flash("Le port doit être un nombre entre 1 et 65535", "error")
+            return redirect(url_for("admin_testing_edit", name=name))
+
+        conn = get_db()
+        if password:
+            # Mettre à jour avec nouveau mot de passe
+            password_hash = generate_password_hash(password)
+            conn.execute("""
+                UPDATE testing_projects 
+                SET display_name = ?, port = ?, password_hash = ?, description = ?, 
+                    health_check_path = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE name = ?
+                """, (
+                    display_name, port, password_hash, description, health_check_path,
+                    1 if active else 0, name
+                )
+            )
+        else:
+            # Garder l'ancien mot de passe
+            conn.execute("""
+                UPDATE testing_projects 
+                SET display_name = ?, port = ?, description = ?, 
+                    health_check_path = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE name = ?
+            """, (display_name, port, description, health_check_path, 1 if active else 0, name))
+        conn.commit()
+        conn.close()
+
+        flash(f"Projet '{display_name}' mis à jour", "success")
+        return redirect(url_for("admin_testing"))
+
+    return render_template("admin_testing_form.html", project=project)
+
+
+@app.route("/admin/testing/delete/<name>", methods=["POST"])
+def admin_testing_delete(name: str):
+    """Supprimer un projet testing."""
+    conn = get_db()
+    conn.execute("DELETE FROM testing_projects WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()
+    flash(f"Projet '{name}' supprimé", "success")
+    return redirect(url_for("admin_testing"))
+
+
+def check_testing_project_health(project: Dict[str, Any]) -> bool:
+    """Vérifie si un projet testing est accessible."""
+    if not TESTING_SERVER_IP:
+        return False
+
+    health_path = project.get("health_check_path", "/health")
+    url = f"http://{TESTING_SERVER_IP}:{project['port']}{health_path}"
+
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(url)
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
+@app.route("/api/testing/status/<name>")
+def api_testing_status(name: str):
+    """API pour vérifier le statut d'un projet testing."""
+    project = get_testing_project(name)
+    if not project:
+        return jsonify({"error": "Projet non trouvé"}), 404
+
+    is_healthy = check_testing_project_health(project)
+
+    return jsonify({
+        "name": project["name"],
+        "display_name": project["display_name"],
+        "port": project["port"],
+        "active": bool(project["active"]),
+        "healthy": is_healthy,
+        "url": f"/testing/{project['name']}/"
+    })
+
+
+# Routes publiques pour les projets Testing
+@app.route("/testing/<project_name>/login", methods=["GET", "POST"])
+def testing_login(project_name: str):
+    """Page de connexion pour un projet testing."""
+    project = get_testing_project(project_name)
+    if not project:
+        abort(404, description="Projet non trouvé")
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+
+        if check_password_hash(project["password_hash"], password):
+            session[f"testing_auth_{project_name}"] = True
+            session[f"testing_name_{project_name}"] = project["display_name"]
+            log_testing_access(project_name, "login_success")
+
+            next_url = request.args.get("next", f"/testing/{project_name}/")
+            return redirect(next_url)
+
+        log_testing_access(project_name, "login_failed")
+        flash("Mot de passe incorrect", "error")
+
+    return render_template(
+        "testing_login.html",
+        project=project,
+        next=request.args.get("next", f"/testing/{project_name}/")
+    )
+
+
+@app.route("/testing/<project_name>/logout")
+def testing_logout(project_name: str):
+    """Déconnexion d'un projet testing."""
+    session.pop(f"testing_auth_{project_name}", None)
+    session.pop(f"testing_name_{project_name}", None)
+    flash("Déconnecté", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/testing/<project_name>/", defaults={"path": ""})
+@app.route("/testing/<project_name>/<path:path>")
+def testing_proxy(project_name: str, path: str):
+    """Proxy vers le projet testing après authentification."""
+    project = get_testing_project(project_name)
+    if not project:
+        abort(404, description="Projet non trouvé")
+
+    # Vérifier l'authentification
+    if not session.get(f"testing_auth_{project_name}"):
+        return redirect(url_for("testing_login", project_name=project_name, next=request.url))
+
+    # Construire l'URL cible
+    if not TESTING_SERVER_IP:
+        abort(503, description="Serveur testing non configuré")
+
+    target_url = f"http://{TESTING_SERVER_IP}:{project['port']}/{path}"
+
+    # Ajouter les query params
+    if request.query_string:
+        target_url += f"?{request.query_string.decode()}"
+
+    # Préparer les headers
+    headers = {
+        key: value for key, value in request.headers
+        if key.lower() not in ["host", "cookie", "connection"]
+    }
+    headers["X-Forwarded-For"] = request.remote_addr or ""
+    headers["X-Forwarded-Proto"] = request.scheme
+    headers["X-Project-Name"] = project_name
+
+    try:
+        with httpx.Client(timeout=PROXY_TIMEOUT) as client:
+            resp = client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=request.get_data(),
+            )
+
+        # Filtrer les headers de réponse
+        excluded_headers = ["content-encoding", "transfer-encoding", "connection"]
+        response_headers = [
+            (name, value) for name, value in resp.headers.items()
+            if name.lower() not in excluded_headers
+        ]
+
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            headers=response_headers
+        )
+
+    except httpx.ConnectError:
+        log_testing_access(project_name, "proxy_error_connect")
+        abort(503, description="Service temporairement indisponible")
+    except httpx.TimeoutException:
+        log_testing_access(project_name, "proxy_error_timeout")
+        abort(504, description="Le service met trop de temps à répondre")
+    except Exception as e:
+        app.logger.error(f"Erreur proxy vers {project_name}: {e}")
+        abort(500, description="Erreur interne")
+
 # Initialisation
 with app.app_context():
     init_db()
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

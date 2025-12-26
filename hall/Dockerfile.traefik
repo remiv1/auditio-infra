@@ -5,5 +5,14 @@ FROM docker.io/library/traefik:v3.2
 LABEL maintainer="Audit IO"
 LABEL description="Traefik reverse proxy pour le hall d'entrée"
 
+# Copier la configuration statique
+COPY traefik/traefik.yml /etc/traefik/traefik.yml
+
+# Copier les routes dynamiques
+COPY traefik/dynamic /etc/traefik/dynamic
+
+# Créer le dossier acme avec les bonnes permissions
+RUN mkdir -p /etc/traefik/acme && chmod 700 /etc/traefik/acme
+
 # Exposition des ports
 EXPOSE 80 443

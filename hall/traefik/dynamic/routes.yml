@@ -1,11 +1,22 @@
 http:
   routers:
+    # Route HTTP pour Hall
     flask-router:
       rule: "PathPrefix(`/`)"
       service: flask-service
       entryPoints:
         - web
       priority: 1
+
+    # Route HTTPS pour Hall (avec TLS)
+    flask-router-secure:
+      rule: "PathPrefix(`/`)"
+      service: flask-service
+      entryPoints:
+        - websecure
+      tls: {}
+      priority: 1
+
   services:
     flask-service:
       loadBalancer:

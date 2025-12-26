@@ -15,9 +15,6 @@ entryPoints:
     address: ":443"
 
 providers:
-  docker:
-    exposedByDefault: false
-    network: hall-network
   file:
     directory: /etc/traefik/dynamic
     watch: true

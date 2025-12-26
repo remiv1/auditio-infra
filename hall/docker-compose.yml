@@ -12,9 +12,7 @@ services:
       - "443:443"
       - "8080:8080"
     volumes:
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro,Z
-      - ./traefik/dynamic:/etc/traefik/dynamic:ro,Z
-      - ./traefik/acme:/etc/traefik/acme:Z
+      - traefik-acme:/etc/traefik/acme
     networks:
       - hall-network
 
@@ -28,6 +26,8 @@ services:
       - FLASK_ENV=production
       - DATABASE_PATH=/data/hall.db
       - CONFIG_PATH=/app/config/domains.json
+      - TESTING_SERVER_IP=${TESTING_SERVER_IP:-}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
     volumes:
       - hall-data:/data
       - ./config:/app/config:ro,Z
@@ -41,7 +41,10 @@ services:
 volumes:
   hall-data:
     driver: local
+  traefik-acme:
+    driver: local
 
 networks:
   hall-network:
+    name: hall-network
     driver: bridge
