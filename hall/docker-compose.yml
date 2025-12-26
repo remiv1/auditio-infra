@@ -2,35 +2,34 @@ version: "3.8"
 
 services:
   traefik:
+    container_name: hall-traefik
     build:
       context: .
       dockerfile: Dockerfile.traefik
-    container_name: hall-traefik
-    restart: unless-stopped
+    restart: always
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./traefik/dynamic:/etc/traefik/dynamic:ro
-      - ./traefik/acme:/etc/traefik/acme
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro,Z
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro,Z
+      - ./traefik/acme:/etc/traefik/acme:Z
     networks:
       - hall-network
 
   flask:
+    container_name: hall-flask
     build:
       context: .
       dockerfile: Dockerfile.flask
-    container_name: hall-flask
-    restart: unless-stopped
+    restart: always
     environment:
       - FLASK_ENV=production
       - DATABASE_PATH=/data/hall.db
       - CONFIG_PATH=/app/config/domains.json
     volumes:
       - hall-data:/data
-      - ./config:/app/config:ro
+      - ./config:/app/config:ro,Z
     networks:
       - hall-network
     labels:

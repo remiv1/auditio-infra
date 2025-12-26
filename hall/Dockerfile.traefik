@@ -1,8 +1,8 @@
 # Dockerfile pour Traefik sur Raspberry Pi
-FROM traefik:v3.2
+FROM docker.io/library/traefik:v3.2
 
 # Labels
-LABEL maintainer="infra-test"
+LABEL maintainer="Audit IO"
 LABEL description="Traefik reverse proxy pour le hall d'entrée"
 
 # Exposition des ports

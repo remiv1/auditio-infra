@@ -1,0 +1,14 @@
+http:
+  routers:
+    flask-router:
+      rule: "PathPrefix(`/`)"
+      service: flask-service
+      entryPoints:
+        - web
+        - websecure
+      tls: {}
+  services:
+    flask-service:
+      loadBalancer:
+        servers:
+          - url: "http://hall-flask:5000"

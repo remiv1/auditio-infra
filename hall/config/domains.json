@@ -44,7 +44,7 @@
                 "health_check": "/api/health"
             },
             "security": {
-                "allowed_ips": ["192.168.1.0/24"],
+                "allowed_ips": ["192.168.1.0/24", "127.0.0.1", "10.89.0.0/16"],
                 "require_auth": false
             }
         }
