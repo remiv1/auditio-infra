@@ -1,5 +1,5 @@
 # Dockerfile pour l'application Flask Gateway
-FROM python:3.11-slim
+FROM python:3.14-bookworm
 
 # Labels
 LABEL maintainer="infra-test"
@@ -12,10 +12,9 @@ ENV PYTHONUNBUFFERED=1
 # Répertoire de travail
 WORKDIR /app
 
-# Installation des dépendances système
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wakeonlan \
-    iputils-ping \
+# Update et installation des dépendances système
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends wakeonlan iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Copie des dépendances Python

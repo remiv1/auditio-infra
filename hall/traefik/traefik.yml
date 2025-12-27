@@ -10,6 +10,12 @@ log:
 entryPoints:
   web:
     address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
 
   websecure:
     address: ":443"
@@ -22,9 +28,10 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: admin@audit-io.fr
+      email: rverschuur@audit-io.fr
       storage: /etc/traefik/acme/acme.json
-      httpChallenge:
-        entryPoint: web
+      dnsChallenge:
+        provider: ovh
+        delayBeforeCheck: 10
 
 accessLog: {}

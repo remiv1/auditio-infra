@@ -1,21 +1,40 @@
 http:
   routers:
-    # Route HTTP pour Hall
-    flask-router:
-      rule: "PathPrefix(`/`)"
+    # Route HTTP pour testing.audit-io.fr (redirection vers HTTPS)
+    testing-router-http:
+      rule: "Host(`testing.audit-io.fr`)"
       service: flask-service
       entryPoints:
         - web
-      priority: 1
+      priority: 10
 
-    # Route HTTPS pour Hall (avec TLS)
-    flask-router-secure:
-      rule: "PathPrefix(`/`)"
+    # Route HTTPS pour testing.audit-io.fr
+    testing-router:
+      rule: "Host(`testing.audit-io.fr`)"
       service: flask-service
       entryPoints:
         - websecure
-      tls: {}
-      priority: 1
+      tls:
+        certResolver: letsencrypt
+      priority: 10
+
+    # Route HTTP pour erp.audit-io.fr (redirection vers HTTPS)
+    erp-router-http:
+      rule: "Host(`erp.audit-io.fr`)"
+      service: flask-service
+      entryPoints:
+        - web
+      priority: 10
+
+    # Route HTTPS pour erp.audit-io.fr
+    erp-router:
+      rule: "Host(`erp.audit-io.fr`)"
+      service: flask-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      priority: 10
 
   services:
     flask-service:

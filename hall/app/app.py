@@ -342,10 +342,28 @@ def require_domain_access(f: F) -> F:
     return decorated_function  # type: ignore
 
 
+# Extraction du domaine depuis le Host header
+def get_domain_from_host() -> Optional[str]:
+    """Extrait le nom de domaine depuis le Host header (ex: testing.audit-io.fr -> testing)."""
+    host = request.headers.get('Host', '').split(':')[0]  # Enlève le port si présent
+    # Mapping des sous-domaines vers les clés de configuration
+    domain_mapping = {
+        'testing.audit-io.fr': 'testing',
+        'erp.audit-io.fr': 'erp'
+    }
+    return domain_mapping.get(host)
+
+
 # Routes
 @app.route("/")
 def index():
-    """Page d'accueil."""
+    """Page d'accueil ou page d'attente si domaine virtuel détecté."""
+    # Si un domaine virtuel est détecté via le Host header
+    domain = get_domain_from_host()
+    if domain and get_domain_config(domain):
+        return domain_page(domain)
+    
+    # Sinon, afficher la page d'accueil normale
     config = load_config()
     domains = list(config.get("domains", {}).keys())
     return render_template("index.html", domains=domains)
