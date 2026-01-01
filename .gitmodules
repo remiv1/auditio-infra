@@ -4,3 +4,6 @@
 [submodule "erp"]
 	path = erp
 	url = https://github.com/remiv1/auditio-infra-erp.git
+[submodule "testing"]
+	path = testing
+	url = https://github.com/remiv1/auditio-infra-testing.git
