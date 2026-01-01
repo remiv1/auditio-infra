@@ -1,3 +1,6 @@
 [submodule "hall"]
 	path = hall
 	url = https://github.com/remiv1/auditio-infra-hall.git
+[submodule "erp"]
+	path = erp
+	url = https://github.com/remiv1/auditio-infra-erp.git
