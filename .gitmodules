@@ -1,0 +1,3 @@
+[submodule "hall"]
+	path = hall
+	url = https://github.com/remiv1/auditio-infra-hall.git
