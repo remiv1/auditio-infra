@@ -1,74 +1,287 @@
-# Orchestration d'un site de test
+# 🏢 Auditio Infrastructure
 
-## Présentation
+Infrastructure d'orchestration multi-serveurs pour Audit IO, entreprise de conseil et développement numérique. Ce projet permet de gérer efficacement les ressources énergétiques tout en offrant une plateforme de développement et de test professionnelle pour les clients.
 
-Hall est une passerelle Flask permettant d'orchestrer le réveil à la demande de serveurs, avec gestion multi-domaines et politiques configurables (always_on, scheduled, on_demand). L'application gère la sécurité par filtrage IP, le suivi d'activité, et propose une interface d'administration.
+## 📋 Vue d'ensemble
 
-## Structure du projet
+**Audit IO** est une entreprise de conseil et développement numérique qui héberge :
 
-- hall/app/app.py : application principale Flask
-- hall/app/requirements.txt : dépendances Python
-- hall/app/static/ : fichiers statiques (CSS, JS)
-- hall/app/templates/ : templates HTML (Jinja2)
-- hall/config/ : configuration des domaines (JSON)
-- hall/docker-compose.yml, Dockerfile.* : conteneurisation
+- Un **ERP** pour la gestion interne de l'entreprise
+- Une **plateforme de test** pour que les clients puissent tester les développements en cours (2 à 5 projets simultanés)
 
-## Fonctionnalités principales (Hall - Gateaway)
+L'infrastructure utilise un **Raspberry Pi comme orchestrateur** (Hall) pour réveiller à la demande les serveurs de production et testing, permettant une **gestion fine et minimaliste de la consommation énergétique**.
 
-### 1. Chargement et cache de configuration
+## 🏗️ Architecture
 
-- Lecture de la configuration JSON (domains.json)
-- Cache mémoire (_config_cache, _config_mtime) pour éviter les relectures inutiles
-- Reload dynamique via /api/reload
+### Infrastructure physique
 
-### 2. Gestion des politiques de réveil
+| Composant | Matériel | OS | Statut | Rôle |
+| --- | --- | --- | --- | --- |
+| **Hall** | Raspberry Pi | Raspbian (Debian) | ✅ Fonctionnel | Orchestrateur, gateway d'entrée, gestion WoL |
+| **Testing** | Serveur Linux | AlmaLinux | 🔨 En développement | Plateforme de test clients (2-5 projets) |
+| **ERP** | Serveur Linux | AlmaLinux | ⏳ Prévu | Gestion entreprise Audit IO |
 
-- always_on : serveur toujours allumé
-- scheduled : allumage selon créneaux horaires et jours, avec fuseau configurable
-- on_demand : réveil sur activité ou requête, extinction après inactivité
-- Prise en compte de l'activité récente (base SQLite et cache mémoire)
+### Architecture logique
 
-### 3. Sécurité et accès
+```md
+                    ┌──────────────────────────────┐
+                    │        Internet              │
+                    └──────────────┬───────────────┘
+                                   │
+                         (80/443)  │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │ Raspberry Pi (Hall)          │
+                    │ - Traefik (reverse proxy)    │
+                    │ - Flask Gateway              │
+                    │ - Wake-on-LAN                │
+                    │ - SQLite (logs)              │
+                    │ - Toujours allumé            │
+                    └──────────┬───────────────────┘
+                               │
+                               │ WoL + Redirection
+                               │
+        ┌──────────────────────┴──────────────────────┐
+        │                                              │
+        ▼                                              ▼
+┌───────────────────┐                      ┌───────────────────┐
+│ Serveur Testing   │                      │ Serveur ERP       │
+│ - Docker          │                      │ - Docker          │
+│ - Projets clients │                      │ - Services métier │
+│ - Réveil WoL      │                      │ - Réveil WoL      │
+│ - AlmaLinux       │                      │ - AlmaLinux       │
+└───────────────────┘                      └───────────────────┘
+```
 
-- Décorateur @require_domain_access : vérifie la configuration du domaine et l'autorisation IP
+## 📂 Structure du projet
+
+Le projet est organisé en trois modules principaux (gérés comme sous-modules Git) :
+
+```md
+auditio-infra/
+├── hall/                           # Orchestrateur (Raspberry Pi)
+│   ├── app/                        # Application Flask Gateway
+│   ├── traefik/                    # Configuration Traefik
+│   ├── wol-dedicated/              # API Wake-on-LAN
+│   ├── config/                     # Configuration domaines
+│   └── docker-compose.yml
+│
+├── testing/                        # Plateforme de test clients (⏳ en cours)
+│   └── (à définir)
+│
+├── erp/                            # ERP Audit IO (⏳ prévu)
+│   └── (à définir)
+│
+├── README.md                       # Ce fichier
+├── ROADMAP.md                      # Feuille de route
+├── DONE.md                         # Historique des modifications
+└── SECURITY.md                     # Politiques de sécurité
+```
+
+## 🎯 Fonctionnalités principales
+
+### Hall - Gateway d'orchestration (✅ Fonctionnel)
+
+#### 1. **Gestion multi-domaines**
+
+- Configuration centralisée dans `config/domains.json`
+- Support de domaines multiples (`testing.audit-io.fr`, `erp.audit-io.fr`)
+- Politiques de réveil configurables par domaine
+
+#### 2. **Politiques de réveil**
+
+- **always_on** : serveur toujours actif
+- **scheduled** : allumage selon créneaux horaires et jours (fuseau configurable)
+- **on_demand** : réveil sur activité ou requête, extinction après inactivité
+
+#### 3. **Wake-on-LAN intelligent**
+
+- API WoL dédiée dans conteneur séparé
+- Réveil automatique ou manuel des serveurs
+- Vérification de disponibilité (ping + health check HTTP)
+- Logs détaillés par domaine
+
+#### 4. **Page d'attente dynamique**
+
+- Affichage professionnel pendant le démarrage du serveur
+- Polling JavaScript (vérification toutes les 1-5 secondes)
+- Redirection automatique quand le service est prêt
+- Suivi en temps réel de l'état
+
+#### 5. **Tableau de bord administrateur**
+
+- Interface web d'administration (accès LAN uniquement)
+- Logs détaillés par domaine
+- Activité en temps réel
+- Gestion des projets de testing
+- Tests manuels (ping, WoL)
+
+#### 6. **Sécurité**
+
 - Filtrage IP par liste blanche (CIDR ou IPs individuelles)
+- Authentification admin par mot de passe
 - Journalisation des accès refusés
+- Isolation réseau des services
 
-### 4. Réseau et monitoring
+#### 7. **Reverse proxy Traefik**
 
-- Wake-on-LAN (WoL) via subprocess (wakeonlan)
-- Ping pour vérifier la disponibilité du serveur
-- Health check HTTP optionnel pour valider la disponibilité applicative
+- Certificats SSL automatiques (Let's Encrypt)
+- Renouvellement automatique
+- Routage multi-domaine
+- Redirection HTTP → HTTPS
 
-### 5. API et interface
+### Testing - Plateforme clients (🔨 En développement)
 
-- /< domain > : page d'attente pour chaque domaine
-- /api/status/< domain > : statut du serveur et de l'application
-- /api/wake/< domain > : réveil du serveur (POST)
-- /api/activity/< domain > : signalement d'activité (POST)
-- /api/config : configuration (admin, masquée)
-- /admin/... : tableau de bord (logs, activité, statuts)
+Plateforme permettant aux clients de tester les développements en cours :
 
-### 6. Base de données
+- Hébergement de 2 à 5 projets simultanés
+- Isolation par conteneur Docker
+- Réveil à la demande via Hall
+- (Détails à compléter)
 
-- SQLite pour journaliser les logs et l'activité par domaine
-- Initialisation automatique au démarrage
+### ERP - Gestion Audit IO (⏳ Prévu)
 
-## Typage et bonnes pratiques
+Système de gestion interne pour Audit IO :
 
-- Typage explicite de toutes les fonctions (Dict, Optional, Callable, TypeVar...)
-- Utilisation de global uniquement pour le cache mémoire
-- Décorateurs typés pour compatibilité avec les outils de type
-- Docstrings systématiques
+- Gestion des projets
+- Facturation
+- CRM
+- (Spécifications à définir)
 
-## Sécurité
+## 🚀 Démarrage rapide
 
-- TODO : Vérification d'accès admin sur /api/config et /api/reload
-- TODO : Restriction d'accès LAN sur /admin
+### Prérequis
 
-## Historique des modifications
+- Docker / Podman
+- Git (avec support des sous-modules)
+- Accès SSH aux serveurs (pour déploiement)
 
-Voir [DONE.md](./DONE.md) pour le suivi détaillé des évolutions et refactorings.
+### Installation Hall
+
+1. **Cloner le projet avec les sous-modules**
+
+   ```bash
+   git clone --recurse-submodules <url-du-depot>
+   cd auditio-infra/hall
+   ```
+
+2. **Configurer les variables d'environnement**
+
+   ```bash
+   cp .env.exemple .env
+   # Éditer .env avec vos paramètres
+   ```
+
+3. **Configurer les domaines**
+
+   ```bash
+   # Éditer config/domains.json avec vos serveurs
+   ```
+
+4. **Lancer les services**
+
+   ```bash
+   docker-compose up -d
+   ```
+
+Voir [hall/README.md](hall/README.md) pour plus de détails.
+
+## 🔐 Gestion des secrets
+
+### Variables d'environnement (.env)
+
+- `ADMIN_PASSWORD` : Mot de passe admin pour le dashboard
+- `SECRET_KEY` : Clé secrète Flask pour les sessions
+- `WOL_API_KEY` : Clé API pour le service Wake-on-LAN
+
+⚠️ **Ne jamais committer le fichier `.env`** (utiliser `.env.exemple` comme template)
+
+### Certificats SSL
+
+- Gestion automatique par Traefik + Let's Encrypt
+- Stockage dans volume `traefik-acme`
+- Renouvellement automatique 30 jours avant expiration
+- Voir [hall/CERTIFICATES.md](hall/CERTIFICATES.md)
+
+## 📊 Workflow de développement
+
+1. **Développement local** : Tests sur machine de développement
+2. **Validation** : Tests en grandeur réelle, vérification routes
+3. **Déploiement** : Push vers serveur de production/testing
+
+## 🛠️ Technologies utilisées
+
+### Hall (Raspberry Pi)
+
+- **Flask 3.1** : Application web Python
+- **Traefik** : Reverse proxy, SSL/TLS
+- **SQLite** : Base de données logs et activité
+- **Gunicorn** : Serveur WSGI
+- **Docker/Podman** : Conteneurisation
+
+### Testing & ERP
+
+- **Docker** : Orchestration des projets
+- **AlmaLinux** : Distribution Linux serveur
+- (Stack technique à définir par projet)
+
+## 📚 Documentation
+
+- [hall/README.md](hall/README.md) - Documentation complète Hall
+- [hall/SERVICE.md](hall/SERVICE.md) - Service systemd
+- [hall/CERTIFICATES.md](hall/CERTIFICATES.md) - Gestion certificats SSL
+- [hall/WOL_CHECKLIST.md](hall/WOL_CHECKLIST.md) - Configuration WoL
+- [ROADMAP.md](ROADMAP.md) - Feuille de route du projet
+- [DONE.md](DONE.md) - Historique des modifications
+- [SECURITY.md](SECURITY.md) - Politiques de sécurité
+
+## 🎯 Avantages de l'architecture
+
+### ✅ Économie d'énergie
+
+- Serveurs éteints par défaut
+- Réveil à la demande uniquement
+- Raspberry Pi ultra-économe (toujours allumé)
+
+### ✅ Expérience utilisateur
+
+- Page d'attente professionnelle
+- Redirection automatique transparente
+- Pas de timeout ou erreur 503
+
+### ✅ Maîtrise totale
+
+- Logs centralisés
+- Monitoring en temps réel
+- Dashboard administrateur
+- Gestion fine des politiques de réveil
+
+### ✅ Scalabilité
+
+- Ajout facile de nouveaux domaines/projets
+- Configuration par fichier JSON
+- Architecture modulaire (sous-modules Git)
+
+## 📝 Statut du projet
+
+| Module | Statut | Description |
+| --- | --- | --- |
+| Hall | ✅ Fonctionnel | Orchestrateur opérationnel en production |
+| Testing | 🔨 En développement | Plateforme de test en cours de construction |
+| ERP | ⏳ Prévu | Pas encore commencé |
+
+## 🤝 Contribution
+
+Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour les guidelines de contribution.
+
+## 📄 Licence
+
+Voir [LICENCE.md](LICENCE.md)
+
+---
+
+**Audit IO** - Conseil et développement numérique  
+Architecture orchestrée, économe, et maîtrisée.
 
 ---
 
@@ -91,7 +304,7 @@ Idée d'architecture “serveur dormant + réveil à la demande.
   - enregistre des logs dans SQLite
   - propose un tableau de bord admin (LAN only)
 
-👉 **C’est ce qu’il faut pour rendre l’expérience fluide et professionnelle.**
+> 👉 **C’est ce qu’il faut pour rendre l’expérience fluide et professionnelle.**
 
 ---
 
@@ -122,15 +335,16 @@ On peux même y ajouter des règles d’accès, des quotas, des logs, etc.
 
 #### Schéma simplifié
 
+```ascii-art
                 ┌──────────────────────────────┐
                 │        Internet              │
-                └──────────────┬──────────────┘
+                └──────────────┬───────────────┘
                                │
                      (80/443)  │
                                ▼
                 ┌──────────────────────────────┐
                 │ Traefik #1 (Raspberry Pi)    │
-                └──────────────┬──────────────┘
+                └──────────────┬───────────────┘
                                │
                                ▼
                 ┌──────────────────────────────┐
@@ -138,17 +352,18 @@ On peux même y ajouter des règles d’accès, des quotas, des logs, etc.
                 │  - logs                      │
                 │  - WoL                       │
                 │  - page d’attente            │
-                └──────────────┬──────────────┘
+                └──────────────┬───────────────┘
                                │ redirection
                                ▼
-                ┌──────────────────────────────┐
+                ┌───────────────────────────────┐
                 │ Traefik #2 (Serveur principal)│
-                └──────────────┬──────────────┘
+                └──────────────┬────────────────┘
                                │
                                ▼
                 ┌──────────────────────────────┐
                 │   Conteneurs client1,2,3…    │
                 └──────────────────────────────┘
+```
 
 ---
 
@@ -159,7 +374,7 @@ C’est Flask qui gère l’attente, avec un polling JS.
 
 ---
 
-## ✔️ 4. On peut faire un tableau de bord admin très utile
+## ✔️ 4. Tableau de bord admin très utile
 
 Avec SQLite, on peux suivre :
 
@@ -173,15 +388,7 @@ Et comme on le limite au LAN, on reste simple et sécurisé.
 
 ---
 
-## 🟡 **Les points à surveiller**
-
-### ⚠️ 1. Le polling JS doit être raisonnable
-
-Évite un ping toutes les 200 ms, toutes les 1 à 5s, c'est suffisant.
-
----
-
-### ⚠️ 2. Le Flask doit être découplé de Traefik
+### ⚠️ 1. Le Flask doit être découplé de Traefik
 
 On dois s’assurer que :
 
@@ -191,7 +398,7 @@ On dois s’assurer que :
 
 ---
 
-### ⚠️ 3. Le serveur doit exposer une API minimale
+### ⚠️ 2. Le serveur doit exposer une API minimale
 
 Pour vérifier :
 
@@ -207,32 +414,13 @@ On peux faire ça via :
 
 ---
 
-### ⚠️ 4. SQLite doit être protégé
+### ⚠️ 3. SQLite doit être protégé
 
 Même si c’est du test, protège :
 
 - les fichiers SQLite
 - l’accès admin
 - les logs sensibles
-
----
-
-## 🧩 **Architecture logique complète**
-
-### 🟦 Raspberry Pi (toujours allumé)
-
-- Traefik (ports 80/443)
-- Flask Gateway (port interne)
-- SQLite (logs)
-- Script WoL
-- Monitoring léger (Netdata ou Prometheus Node Exporter)
-
-### 🟥 Serveur principal (dormant)
-
-- Docker Engine
-- Docker Compose par projet
-- API de statut (ou SSH)
-- Conteneurs des projets
 
 ---
 
@@ -262,7 +450,7 @@ Même si c’est du test, protège :
 ## 🧭 **Conclusion**
 
 L'idée est **bien pensée**.
-On crée un orchestrateur léger, souverain, économe en énergie, et parfaitement adapté à ton besoin de tests multi‑clients.
+On crée un orchestrateur léger, souverain, économe en énergie, et parfaitement adapté au besoin de tests multi‑clients.
 
 > **Flask comme gateway + JS pour le polling + SQLite pour les logs + Traefik pour le routage + WoL pour le serveur dormant = architecture élégante, robuste et maîtrisée.**
 > *construire une mini‑plateforme d’hébergement intelligente, à la fois low‑tech et high‑efficiency.*
