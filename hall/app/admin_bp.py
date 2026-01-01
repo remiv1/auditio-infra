@@ -186,3 +186,36 @@ def admin_testing_delete(name: str):
     delete_testing_project(name)
     flash(f"Projet '{name}' supprimé", "success")
     return redirect(url_for("admin_bp.admin_testing"))
+
+
+@admin_bp.route("/shutdown/<domain>", methods=["POST"])
+@require_admin_login
+def shutdown_server(domain):
+    """Éteindre le serveur d'un domaine via son shutdown_endpoint."""
+    config = load_config()
+    domains = config.get("domains", {})
+    conf = domains.get(domain)
+    if not conf or not conf.get("shutdown_endpoint"):
+        flash("Aucun endpoint d'extinction configuré pour ce domaine.", "error")
+        return redirect(url_for("admin_bp.admin"))
+    endpoint = conf["shutdown_endpoint"]
+    url = endpoint.get("url")
+    method = endpoint.get("method", "POST").upper()
+    port = endpoint.get("port")
+    try:
+        import requests
+        req_url = url
+        if port and ":" not in url:
+            # Ajoute le port si non présent dans l'URL
+            from urllib.parse import urlparse, urlunparse
+            parts = list(urlparse(url))
+            parts[1] = f"{parts[1].split(':')[0]}:{port}"
+            req_url = urlunparse(parts)
+        resp = requests.request(method, req_url, timeout=5)
+        if resp.status_code in (200, 202, 204):
+            flash(f"Extinction demandée pour {domain} (code {resp.status_code})", "success")
+        else:
+            flash(f"Erreur lors de l'extinction ({resp.status_code}): {resp.text}", "error")
+    except Exception as e:
+        flash(f"Erreur lors de la requête d'extinction: {e}", "error")
+    return redirect(url_for("admin_bp.admin"))

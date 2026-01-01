@@ -4,6 +4,7 @@ Fonctions Wake-on-LAN et vérifications réseau pour Hall - Flask Gateway.
 """
 
 import subprocess
+import os
 import requests
 from typing import Dict, Any
 
@@ -21,31 +22,36 @@ def send_wol(app: Flask, mac_address: str, domain: str = None) -> bool:
     :param domain: Domaine associé (pour le logging par domaine)
     :return: True si succès, False sinon
     """
+    # Appel à l'API WoL dédiée (dans le conteneur hall-wol)
+    WOL_API_URL = os.environ.get("WOL_API_URL", "http://hall-wol:5001/wol")
+    WOL_API_KEY = os.environ.get("WOL_API_KEY", "change-me")
+    WOL_BROADCAST = os.environ.get("WOL_BROADCAST", "192.168.1.255")
     try:
-        result = subprocess.run(
-            ["wakeonlan", mac_address],
-            check=True,
-            capture_output=True,
-            text=True
+        response = requests.post(
+            WOL_API_URL,
+            json={"mac": mac_address, "broadcast": WOL_BROADCAST},
+            headers={"X-API-KEY": WOL_API_KEY},
+            timeout=5
         )
+        if response.status_code == 200:
+            log_event(
+                app,
+                f"WoL envoyé à {mac_address} via API | réponse: {response.json()}",
+                domain=domain
+            )
+            return True
+        else:
+            log_event(
+                app,
+                f"Erreur WoL API pour {mac_address} | status: {response.status_code} | body: {response.text}",
+                level="error",
+                domain=domain
+            )
+            return False
+    except Exception as e:
         log_event(
             app,
-            f"WoL envoyé à {mac_address} | stdout: {result.stdout.strip()} | stderr: {result.stderr.strip()} | returncode: {result.returncode}",
-            domain=domain
-        )
-        return True
-    except subprocess.CalledProcessError as e:
-        log_event(
-            app,
-            f"Erreur WoL pour {mac_address} | stdout: {e.stdout.strip()} | stderr: {e.stderr.strip()} | returncode: {e.returncode}",
-            level="error",
-            domain=domain
-        )
-        return False
-    except FileNotFoundError:
-        log_event(
-            app,
-            f"Commande 'wakeonlan' non trouvée. Installez-la avec 'apt install wakeonlan'",
+            f"Erreur lors de l'appel à l'API WoL: {e}",
             level="error",
             domain=domain
         )

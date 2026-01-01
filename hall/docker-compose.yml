@@ -42,6 +42,17 @@ services:
       - "traefik.http.routers.flask.rule=PathPrefix(`/`)"
       - "traefik.http.services.flask.loadbalancer.server.port=5000"
 
+  wol:
+    build: ./wol-dedicated
+    container_name: hall-wol
+    environment:
+      - WOL_API_KEY=change-me
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "apt-get update && apt-get install -y wakeonlan && python /wol_api.py"]
+    networks:
+      - hall-network
+      - wol-macvlan
+
 volumes:
   hall-data:
     driver: local
@@ -50,3 +61,11 @@ networks:
   hall-network:
     name: hall-network
     driver: bridge
+  wol-macvlan:
+    driver: macvlan
+    driver_opts:
+      parent: end0
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+          gateway: 192.168.1.1

@@ -17,6 +17,9 @@
     </div>
 
     <h2>🌐 Domaines configurés</h2>
+    <div style="margin-bottom:1rem;">
+        <a href="{{ url_for('admin_bp.admin_testing') }}" class="btn-add">Configuration</a>
+    </div>
     <table>
         <thead>
             <tr>
@@ -26,6 +29,7 @@
                 <th>Politique</th>
                 <th>Timeout</th>
                 <th>Statut</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -42,10 +46,17 @@
                     <span class="status-dot {{ 'online' if data.online else 'offline' }}"></span>
                     {{ 'En ligne' if data.online else 'Hors ligne' }}
                 </td>
+                <td>
+                    {% if data.config.shutdown_endpoint %}
+                    <form action="{{ url_for('admin_bp.shutdown_server', domain=name) }}" method="post" style="display:inline;" onsubmit="return confirm('Éteindre le serveur {{ name }} ?');">
+                        <button type="submit" class="btn-delete">Éteindre</button>
+                    </form>
+                    {% endif %}
+                </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" style="text-align: center; color: #888;">Aucun domaine configuré</td>
+                <td colspan="7" style="text-align: center; color: #888;">Aucun domaine configuré</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -110,14 +121,5 @@
             {% endfor %}
         </tbody>
     </table>
-
-    <script>
-        async function reloadConfig() {
-            const response = await fetch('/api/reload', { method: 'POST' });
-            const data = await response.json();
-            alert(data.message);
-            if (data.success) location.reload();
-        }
-    </script>
 </body>
 </html>
