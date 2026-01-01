@@ -33,6 +33,8 @@ services:
     volumes:
       - hall-data:/data
       - ./config:/app/config:ro
+      - ./log/testing:/app/logs/testing
+      - ./log/erp:/app/logs/erp
     networks:
       - hall-network
     labels:

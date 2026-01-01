@@ -21,9 +21,11 @@ from flask import (
     Flask, render_template, jsonify, request, abort, session, redirect, url_for, flash, Response
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from logging_utils import setup_logging, log_event
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me-in-production')
+setup_logging(app)
 
 # Authentification admin simple
 def require_admin_login(view_func):
@@ -269,9 +271,11 @@ def should_be_awake(domain: str, domain_config: Dict[str, Any]) -> tuple[bool, s
 def send_wol(mac_address: str) -> bool:
     """Envoie un paquet Wake-on-LAN."""
     try:
-        subprocess.run(["wakeonlan", mac_address], check=True, capture_output=True)
+        result = subprocess.run(["wakeonlan", mac_address], check=True, capture_output=True, text=True)
+        log_event(app, f"WoL envoyé à {mac_address} | stdout: {result.stdout.strip()} | stderr: {result.stderr.strip()} | returncode: {result.returncode}")
         return True
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
+        log_event(app, f"Erreur WoL pour {mac_address} | stdout: {e.stdout.strip()} | stderr: {e.stderr.strip()} | returncode: {e.returncode}", level="error")
         return False
 
 
@@ -452,6 +456,8 @@ def api_wake(domain: str):
 
     success = send_wol(mac)
     update_activity(domain)
+    # Log dans le fichier du domaine
+    log_event(app, f"[WOL] Domaine: {domain} | MAC: {mac} | Success: {success}", domain=domain)
     log_action(domain, "wol", "success" if success else "failed", f"MAC: {mac}")
 
     # Incrémenter le compteur de boot

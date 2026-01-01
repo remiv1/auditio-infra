@@ -3,9 +3,9 @@
         "testing": {
             "description": "Serveur de test client",
             "server": {
-                "mac": "00:11:22:33:44:55",
-                "ip": "192.168.1.100",
-                "hostname": "testing-server"
+                "mac": "94:C6:91:B2:39:E0",
+                "ip": "192.168.1.137",
+                "hostname": "auditio-test"
             },
             "policy": {
                 "type": "on_demand",
@@ -25,8 +25,8 @@
             "description": "ERP entreprise",
             "server": {
                 "mac": "00:11:22:33:44:66",
-                "ip": "192.168.1.101",
-                "hostname": "erp-server"
+                "ip": "192.168.1.136",
+                "hostname": "auditio-erp"
             },
             "policy": {
                 "type": "scheduled",
@@ -44,7 +44,7 @@
                 "health_check": "/api/health"
             },
             "security": {
-                "allowed_ips": ["192.168.1.0/24", "127.0.0.1", "10.89.0.0/16"],
+                "allowed_ips": ["192.168.1.0/24", "10.89.0.0/16"],
                 "require_auth": false
             }
         }
