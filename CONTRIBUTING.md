@@ -1,50 +1,53 @@
-# Contributing Guide
+# Contribution
 
-Thank you for considering contributing to this project!
+[Accueil](README.md) · [Hall](hall/README.md) · [Sécurité](SECURITY.md)
 
-## How to Contribute
+## Deux dépôts, deux responsabilités
 
-1. **Fork the repository** and create your branch from `main`.
-2. **Describe your changes** clearly in your pull request (PR).
-3. **Test your code** before submitting. Make sure it does not break existing features.
-4. **Follow the code style** and best practices described below.
-5. **Sign your commits** if required by the project policy.
+Le dépôt parent contient la documentation d'infrastructure. `hall` est un sous-module avec son propre historique : les changements de l'application se font dans ce dépôt, puis le parent peut référencer sa nouvelle révision.
 
-## Code Style
+```bash
+git submodule update --init hall
+git status --short
+git -C hall status --short
+```
 
-- Use clear, descriptive variable and function names.
-- Write docstrings for all public functions and classes.
-- Use type annotations where possible (Python typing).
-- Keep functions small and focused.
-- Use consistent formatting (PEP8 for Python).
+Ne pas faire de mise à jour de sous-module qui écrase des changements locaux. Les fichiers non suivis de configuration et les clés SSH doivent rester locaux.
 
-## Pull Request Process
+## Environnement de développement
 
-1. Ensure your branch is up to date with `main` before opening a PR.
-2. Fill in the PR template (if available) and explain the motivation for your change.
-3. Reference related issues in your PR description (e.g., `Fixes #123`).
-4. Wait for review and address feedback promptly.
-5. Only maintainers can merge PRs.
+Depuis `hall`, utiliser Python 3.11 ou supérieur ; le conteneur de production utilise Python 3.14.
 
-## Issue Reporting
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest tests -q
+docker compose config --quiet
+bash -n entrypoint.sh hall-service.sh test-https.sh utilitaires/wol_persistant.sh
+```
 
-- Search for existing issues before opening a new one.
-- Provide a clear, descriptive title and detailed information.
-- Include steps to reproduce, expected behavior, and screenshots/logs if relevant.
+Les tests existants couvrent le catalogue, le rechargement Caddy, les routes publiques, le réveil et les alertes. Par défaut, réutiliser leurs simulations plutôt qu'appeler le LAN ou le relais SMTP. Le [test SMTP réel](hall/README.md#vérifier-le-relais-smtp-réel) est ignoré sans son option d'autorisation explicite.
 
-## Commit Messages
+## Conventions
 
-- Use concise, meaningful commit messages.
-- Start with a verb in the imperative (e.g., "Add", "Fix", "Update").
-- Group related changes in a single commit when possible.
+| Sujet | Attendu |
+| :--- | :--- |
+| Python | Annotations de types, noms explicites, fonctions ciblées |
+| Docstrings publiques | Français, format Google |
+| Commentaires et commits | Français, justification utile plutôt que narration |
+| Tests | pytest, comportement métier et cas limites clairement définis |
+| Documentation | Liens relatifs, exemples sans secrets, diagrammes Mermaid |
 
-## Code of Conduct
+## Proposer un changement
 
-This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). Please be respectful and inclusive in all interactions.
+1. Décrire le problème, le comportement attendu et le périmètre.
+2. Modifier le composant concerné, sans nettoyage sans rapport.
+3. Exécuter les contrôles ciblés et mettre à jour la documentation.
+4. Présenter les validations, limites et impacts opérationnels dans la pull request.
+5. Publier la révision Hall avant de proposer sa référence dans le dépôt parent.
 
-## Need Help?
+> [!WARNING]
+> Construire ou recréer les conteneurs de production, modifier systemd, réveiller le serveur ou envoyer un courriel réel demande une intervention prévue. Les tests locaux ne doivent pas effectuer ces actions.
 
-If you have questions, open an issue or start a discussion.
-
----
-Thank you for helping to make this project better!
+Ne jamais ajouter `.env`, `.env.acme`, une clé privée ou un stockage de certificats à Git. Pour une vulnérabilité, suivre [SECURITY.md](SECURITY.md) plutôt qu'ouvrir une issue publique. Les échanges suivent le [code de conduite](CODE_OF_CONDUCT.md).

@@ -1,7 +1,19 @@
 
 # DONE.md
 
-## Travaux réalisés (synthèse)
+## Architecture actuelle : octobre 2026
+
+- Catalogue public de projets dans un fichier TOML rechargé à chaud.
+- Proxy Caddy et certificats OVH, avec routage par sous-domaine et conservation du Host.
+- Réveil WoL via SSH depuis l'hôte, contrôles HTTP pendant cinq minutes et alerte SMTP limitée.
+- Suppression des anciennes fonctions d'identification, d'administration, de cron et d'arrêt automatique.
+- Retrait des composants ERP et API Testing du dépôt actif et nettoyage des fichiers inutilisés.
+- Documentation réorganisée autour du [déploiement](hall/DEPLOYMENT.md), de la [configuration](hall/documentation/CONFIGURATION.md) et de l'[exploitation](hall/documentation/OPERATIONS.md).
+
+> [!NOTE]
+> Le bilan ci-dessous décrit l'ancienne architecture. Ses fonctions ne sont pas toutes présentes dans Hall aujourd'hui ; il est conservé pour son intérêt historique.
+
+## Historique : première architecture
 
 ### 1. Mise en place d'une passerelle Flask pour le réveil à la demande
 
